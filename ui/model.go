@@ -16,6 +16,7 @@ type BubbleteaModel struct {
 	DirMap          map[string]string
 	SearchQuery     string
 	ShowSearch      bool
+	Title           string
 }
 
 // Init is the bubbletea initialization function
@@ -100,7 +101,7 @@ func (m *BubbleteaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View is the bubbletea view function that renders the UI
 func (m *BubbleteaModel) View() string {
-	s := "Select a repository:"
+	s := m.Title
 
 	// Show search box if enabled
 	if m.ShowSearch {
@@ -130,7 +131,7 @@ func (m *BubbleteaModel) View() string {
 }
 
 // InitializeModel initializes the bubbletea model
-func InitializeModel(options []string, dirMap map[string]string) BubbleteaModel {
+func InitializeModel(title string, options []string, dirMap map[string]string) BubbleteaModel {
 	showSearch := len(options) > 3
 
 	return BubbleteaModel{
@@ -141,5 +142,6 @@ func InitializeModel(options []string, dirMap map[string]string) BubbleteaModel 
 		DirMap:          dirMap,
 		SearchQuery:     "",
 		ShowSearch:      showSearch,
+		Title:           title,
 	}
 }

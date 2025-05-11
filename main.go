@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	git "github.com/Haptic-Labs/tmux-sessionizer/git"
 	tmux "github.com/Haptic-Labs/tmux-sessionizer/tmux"
@@ -19,11 +18,13 @@ func main() {
 	// Define flags
 	var forceAttach bool
 	var forceRecreate bool
+	var editDefaultConfig bool
 
 	flag.BoolVar(&forceAttach, "a", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceAttach, "attach", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceRecreate, "k", false, "Automatically kill and recreate existing session if it exists")
 	flag.BoolVar(&forceRecreate, "kill", false, "Automatically kill and recreate existing session if it exists")
+	flag.BoolVar(&editDefaultConfig, "config", false, "Edit the default session config")
 
 	// Parse flags
 	flag.Parse()
@@ -74,13 +75,15 @@ func main() {
 		options = append(options, name)
 	}
 
-	// Sort the options alphabetically (case-insensitive)
+	// Sort the options by last modified time (most recent first)
 	sort.Slice(options, func(i, j int) bool {
-		return strings.ToLower(options[i]) < strings.ToLower(options[j])
+		timeI := utils.GetLastModifiedTime(dirMap[options[i]])
+		timeJ := utils.GetLastModifiedTime(dirMap[options[j]])
+		return timeI.After(timeJ) // Sort in descending order (newest first)
 	})
 
 	// Create bubbletea model for repository selection
-	model := ui.InitializeModel(options, dirMap)
+	model := ui.InitializeModel("Select a git repository:", options, dirMap)
 	p := tea.NewProgram(&model)
 	result, err := p.Run()
 	if err != nil {

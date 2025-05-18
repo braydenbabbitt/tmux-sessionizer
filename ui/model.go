@@ -7,15 +7,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type Option struct {
+	Label string
+	Value string
+}
+
 // BubbleteaModel represents the bubbletea UI state
 type BubbleteaModel struct {
-	Options         []string
-	FilteredOptions []string
+	Options         []Option
+	FilteredOptions []Option
 	Cursor          int
 	Selected        int
-	DirMap          map[string]string
 	SearchQuery     string
 	ShowSearch      bool
+	Title           string
 }
 
 // Init is the bubbletea initialization function
@@ -34,11 +39,12 @@ func (m *BubbleteaModel) FilterOptions() {
 		return
 	}
 
-	m.FilteredOptions = []string{}
+	m.FilteredOptions = []Option{}
 	lowerQuery := strings.ToLower(m.SearchQuery)
 
 	for _, opt := range m.Options {
-		if strings.Contains(strings.ToLower(opt), lowerQuery) {
+		combinedStr := strings.ToLower(opt.Label + " " + opt.Value)
+		if strings.Contains(combinedStr, lowerQuery) {
 			m.FilteredOptions = append(m.FilteredOptions, opt)
 		}
 	}
@@ -100,7 +106,7 @@ func (m *BubbleteaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View is the bubbletea view function that renders the UI
 func (m *BubbleteaModel) View() string {
-	s := "Select a repository:"
+	s := m.Title
 
 	// Show search box if enabled
 	if m.ShowSearch {
@@ -117,7 +123,7 @@ func (m *BubbleteaModel) View() string {
 			if m.Cursor == i {
 				cursor = ">"
 			}
-			s += fmt.Sprintf("%s %s\n", cursor, option)
+			s += fmt.Sprintf("%s %s\n", cursor, option.Label)
 		}
 	}
 
@@ -130,7 +136,7 @@ func (m *BubbleteaModel) View() string {
 }
 
 // InitializeModel initializes the bubbletea model
-func InitializeModel(options []string, dirMap map[string]string) BubbleteaModel {
+func InitializeModel(title string, options []Option) BubbleteaModel {
 	showSearch := len(options) > 3
 
 	return BubbleteaModel{
@@ -138,8 +144,8 @@ func InitializeModel(options []string, dirMap map[string]string) BubbleteaModel 
 		FilteredOptions: options,
 		Cursor:          0,
 		Selected:        -1,
-		DirMap:          dirMap,
 		SearchQuery:     "",
 		ShowSearch:      showSearch,
+		Title:           title,
 	}
 }

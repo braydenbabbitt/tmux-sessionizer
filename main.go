@@ -6,24 +6,24 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	git "github.com/Haptic-Labs/tmux-sessionizer/git"
 	tmux "github.com/Haptic-Labs/tmux-sessionizer/tmux"
 	ui "github.com/Haptic-Labs/tmux-sessionizer/ui"
 	utils "github.com/Haptic-Labs/tmux-sessionizer/utils"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
 	// Define flags
 	var forceAttach bool
 	var forceRecreate bool
+	var editDefaultConfig bool
 
 	flag.BoolVar(&forceAttach, "a", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceAttach, "attach", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceRecreate, "k", false, "Automatically kill and recreate existing session if it exists")
 	flag.BoolVar(&forceRecreate, "kill", false, "Automatically kill and recreate existing session if it exists")
+	flag.BoolVar(&editDefaultConfig, "config", false, "Edit the default session config")
 
 	// Parse flags
 	flag.Parse()
@@ -65,46 +65,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Get directory names and create mapping to full paths
-	dirMap := utils.GetDirectoryNames(repos)
+	// Get directory names and convert to options
+	options := utils.ConvertPathsToOptions(repos)
 
-	// Create a slice of directory names for the selection
-	var options []string
-	for name := range dirMap {
-		options = append(options, name)
-	}
-
-	// Sort the options alphabetically (case-insensitive)
+	// Sort the options by last modified time (most recent first)
 	sort.Slice(options, func(i, j int) bool {
-		return strings.ToLower(options[i]) < strings.ToLower(options[j])
+		timeI := utils.GetLastModifiedTime(options[i].Value)
+		timeJ := utils.GetLastModifiedTime(options[j].Value)
+		return timeI.After(timeJ) // Sort in descending order (newest first)
 	})
 
-	// Create bubbletea model for repository selection
-	model := ui.InitializeModel(options, dirMap)
-	p := tea.NewProgram(&model)
-	result, err := p.Run()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error running bubbletea program: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Get the selected repository from the model
-	m, ok := result.(*ui.BubbleteaModel)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: could not get model from program\n")
-		os.Exit(1)
-	}
-
-	if m.Selected == -1 {
-		fmt.Println("No repository selected.")
-		os.Exit(0)
-	}
-
-	selected := options[m.Selected]
-	selectedPath := dirMap[selected]
+	selected := ui.GetSelectionFromList("Select a git repository:", options)
+	selectedPath := selected.Value
 
 	// Create tmux session
-	err = tmux.CreateTmuxSession(selected, selectedPath, forceAttach, forceRecreate)
+	err = tmux.CreateTmuxSession(selected.Label, selectedPath, forceAttach, forceRecreate)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating tmux session: %v\n", err)
 		os.Exit(1)

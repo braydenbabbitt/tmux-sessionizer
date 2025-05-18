@@ -68,34 +68,61 @@ func CreateTmuxSession(name string, directory string, forceAttach bool, forceRec
 		}
 	}
 
-	// Create new session with first window named "nvim"
-	createCmd := exec.Command("tmux", "new-session", "-d", "-s", name, "-c", directory, "-n", "nvim")
+	// Load configuration
+	config, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("Warning: Could not load config, using defaults: %v\n", err)
+		config = DefaultConfig()
+	}
+
+	// Create a new detached session with the first window
+	firstWindowName := "tmux" // Default name if no windows are configured
+	if len(config.Windows) > 0 {
+		firstWindowName = config.Windows[0].Name
+	}
+
+	// Create new session with the first window
+	createCmd := exec.Command("tmux", "new-session", "-d", "-s", name, "-c", directory, "-n", firstWindowName)
 	if err := createCmd.Run(); err != nil {
 		return err
 	}
 
-	// Run nvim in the first window
-	nvimCmd := exec.Command("tmux", "send-keys", "-t", name+":0", "nvim", "Enter")
-	if err := nvimCmd.Run(); err != nil {
-		return err
+	// Configure all windows based on the configuration
+	for i, window := range config.Windows {
+		if i == 0 {
+			// The first window is already created, just send the command if specified
+			if window.Command != "" {
+				sendKeysCmd := exec.Command("tmux", "send-keys", "-t", fmt.Sprintf("%s:0", name), window.Command, "Enter")
+				if err := sendKeysCmd.Run(); err != nil {
+					return fmt.Errorf("failed to send keys to first window: %w", err)
+				}
+			}
+		} else {
+			// Create additional windows
+			newWindowCmd := exec.Command("tmux", "new-window", "-t", fmt.Sprintf("%s:%d", name, i), "-n", window.Name, "-c", directory)
+			if err := newWindowCmd.Run(); err != nil {
+				return fmt.Errorf("failed to create window %s: %w", window.Name, err)
+			}
+
+			// Run the command in the window if specified
+			if window.Command != "" {
+				cmdStr := window.Command
+				sendKeysCmd := exec.Command("tmux", "send-keys", "-t", fmt.Sprintf("%s:%d", name, i), cmdStr, "Enter")
+				if err := sendKeysCmd.Run(); err != nil {
+					return fmt.Errorf("failed to send keys to window %s: %w", window.Name, err)
+				}
+			}
+		}
 	}
 
-	// Create second window named "server"
-	serverCmd := exec.Command("tmux", "new-window", "-t", name+":1", "-n", "server", "-c", directory)
-	if err := serverCmd.Run(); err != nil {
-		return err
+	// Select the initial active window
+	initialWindow := 0
+	if config.InitialActiveWindow >= 0 && config.InitialActiveWindow < len(config.Windows) {
+		initialWindow = config.InitialActiveWindow
 	}
-
-	// Create third window named "term"
-	termCmd := exec.Command("tmux", "new-window", "-t", name+":2", "-n", "term", "-c", directory)
-	if err := termCmd.Run(); err != nil {
-		return err
-	}
-
-	// Select the first window
-	selectCmd := exec.Command("tmux", "select-window", "-t", name+":0")
+	selectCmd := exec.Command("tmux", "select-window", "-t", fmt.Sprintf("%s:%d", name, initialWindow))
 	if err := selectCmd.Run(); err != nil {
-		return err
+		return fmt.Errorf("failed to select initial window: %w", err)
 	}
 
 	// Attach to the session

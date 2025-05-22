@@ -3,7 +3,7 @@ package utils
 import (
 	"path/filepath"
 
-	ui "github.com/Haptic-Labs/tmux-sessionizer/ui"
+	"github.com/Haptic-Labs/tmux-sessionizer/ui"
 )
 
 // ConvertPathsToOptions extracts just the directory names (not full paths) from a list of paths

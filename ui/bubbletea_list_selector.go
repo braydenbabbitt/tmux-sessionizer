@@ -7,8 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func GetSelectionFromList(title string, options []Option) Option {
-	model := InitializeModel(title, options)
+func GetSelectionFromList(title string, options []Option, disableSearch bool) Option {
+	model := InitializeModel(title, options, disableSearch)
 	p := tea.NewProgram(&model)
 
 	result, err := p.Run()

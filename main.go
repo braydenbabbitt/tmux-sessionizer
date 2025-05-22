@@ -1,40 +1,61 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
-	git "github.com/Haptic-Labs/tmux-sessionizer/git"
-	tmux "github.com/Haptic-Labs/tmux-sessionizer/tmux"
-	ui "github.com/Haptic-Labs/tmux-sessionizer/ui"
-	utils "github.com/Haptic-Labs/tmux-sessionizer/utils"
+	"github.com/Haptic-Labs/tmux-sessionizer/git"
+	"github.com/Haptic-Labs/tmux-sessionizer/tmux"
+	"github.com/Haptic-Labs/tmux-sessionizer/ui"
+	"github.com/Haptic-Labs/tmux-sessionizer/utils"
 )
 
 func main() {
-	// Define flags
+	// Variables for command-line options
 	var forceAttach bool
 	var forceRecreate bool
 	var editDefaultConfig bool
-
-	flag.BoolVar(&forceAttach, "a", false, "Automatically attach to existing session if it exists")
-	flag.BoolVar(&forceAttach, "attach", false, "Automatically attach to existing session if it exists")
-	flag.BoolVar(&forceRecreate, "k", false, "Automatically kill and recreate existing session if it exists")
-	flag.BoolVar(&forceRecreate, "kill", false, "Automatically kill and recreate existing session if it exists")
-	flag.BoolVar(&editDefaultConfig, "config", false, "Edit the default session config")
-
-	// Parse flags
-	flag.Parse()
-
 	var searchDir string
 
-	// Check if a directory argument was provided
-	args := flag.Args()
-	if len(args) > 0 {
+	// Process all arguments to handle flags in any position
+	args := os.Args[1:]
+	var nonFlagArgs []string
+
+	for _, arg := range args {
+		switch {
+		case arg == "-a" || arg == "--attach":
+			forceAttach = true
+		case arg == "-k" || arg == "--kill":
+			forceRecreate = true
+		case arg == "--config":
+			editDefaultConfig = true
+		case !strings.HasPrefix(arg, "-"):
+			// This is not a flag, so it's probably a directory
+			nonFlagArgs = append(nonFlagArgs, arg)
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown flag: %s\n", arg)
+			fmt.Println("Usage: tmux-sessionizer [directory] [-a|--attach] [-k|--kill] [--config]")
+			os.Exit(1)
+		}
+	}
+
+	if editDefaultConfig {
+		newConfig, err := tmux.RunDefaultConfigEditor()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error editing default config: %v\n", err)
+			os.Exit(1)
+		}
+
+		tmux.SaveConfig(newConfig)
+		os.Exit(0)
+	}
+
+	if len(nonFlagArgs) > 0 {
 		// Use the provided directory
-		providedDir := args[0]
+		providedDir := nonFlagArgs[0]
 		absDir, err := filepath.Abs(providedDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
@@ -75,7 +96,7 @@ func main() {
 		return timeI.After(timeJ) // Sort in descending order (newest first)
 	})
 
-	selected := ui.GetSelectionFromList("Select a git repository:", options)
+	selected := ui.GetSelectionFromList("Select a git repository:", options, false)
 	selectedPath := selected.Value
 
 	// Create tmux session

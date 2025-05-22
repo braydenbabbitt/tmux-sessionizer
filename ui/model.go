@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -43,7 +44,10 @@ func (m *BubbleteaModel) FilterOptions() {
 	lowerQuery := strings.ToLower(m.SearchQuery)
 
 	for _, opt := range m.Options {
-		combinedStr := strings.ToLower(opt.Label + " " + opt.Value)
+		combinedStr := strings.ToLower(opt.Label)
+		if reflect.TypeOf(opt.Value).Kind() == reflect.String {
+			combinedStr += " " + strings.ToLower(fmt.Sprintf("%v", opt.Value))
+		}
 		if strings.Contains(combinedStr, lowerQuery) {
 			m.FilteredOptions = append(m.FilteredOptions, opt)
 		}
@@ -106,10 +110,11 @@ func (m *BubbleteaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View is the bubbletea view function that renders the UI
 func (m *BubbleteaModel) View() string {
+	resolvedShowSearch := m.ShowSearch && len(m.Options) > 3
 	s := m.Title
 
 	// Show search box if enabled
-	if m.ShowSearch {
+	if resolvedShowSearch {
 		s += fmt.Sprintf("\nSearch: %s", m.SearchQuery)
 	}
 
@@ -128,7 +133,7 @@ func (m *BubbleteaModel) View() string {
 	}
 
 	s += "\nPress q to quit."
-	if m.ShowSearch {
+	if resolvedShowSearch {
 		s += " Type to search."
 	}
 	s += "\n"
@@ -136,16 +141,14 @@ func (m *BubbleteaModel) View() string {
 }
 
 // InitializeModel initializes the bubbletea model
-func InitializeModel(title string, options []Option) BubbleteaModel {
-	showSearch := len(options) > 3
-
+func InitializeModel(title string, options []Option, disableSearch bool) BubbleteaModel {
 	return BubbleteaModel{
 		Options:         options,
 		FilteredOptions: options,
 		Cursor:          0,
 		Selected:        -1,
 		SearchQuery:     "",
-		ShowSearch:      showSearch,
+		ShowSearch:      !disableSearch,
 		Title:           title,
 	}
 }

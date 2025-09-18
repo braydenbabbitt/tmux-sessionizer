@@ -19,14 +19,37 @@ func main() {
 	// Define flags
 	var forceAttach bool
 	var forceRecreate bool
+	var useCurrent bool
 
 	flag.BoolVar(&forceAttach, "a", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceAttach, "attach", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceRecreate, "k", false, "Automatically kill and recreate existing session if it exists")
 	flag.BoolVar(&forceRecreate, "kill", false, "Automatically kill and recreate existing session if it exists")
+	flag.BoolVar(&useCurrent, "c", false, "Use current directory for session (skip directory selection)")
+	flag.BoolVar(&useCurrent, "current", false, "Use current directory for session (skip directory selection)")
 
 	// Parse flags
 	flag.Parse()
+
+	// If --current flag is set, use current directory directly
+	if useCurrent {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Get the base name of the current directory for the session name
+		sessionName := filepath.Base(currentDir)
+
+		// Create tmux session directly
+		err = tmux.CreateTmuxSession(sessionName, currentDir, forceAttach, forceRecreate)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tmux session: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	var searchDir string
 

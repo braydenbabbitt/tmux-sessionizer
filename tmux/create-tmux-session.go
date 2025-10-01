@@ -13,7 +13,7 @@ import (
 // If forceRecreate is true and a session exists, it will kill and recreate the session without prompting
 func CreateTmuxSession(name string, directory string, forceAttach bool, forceRecreate bool) error {
 	// Check if session already exists
-	checkCmd := exec.Command("tmux", "has-session", "-t", name)
+	checkCmd := exec.Command("tmux", "has-session", "-t", "="+name)
 	err := checkCmd.Run()
 
 	if err == nil {

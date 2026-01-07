@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	config "github.com/Haptic-Labs/tmux-sessionizer/config"
@@ -29,6 +30,7 @@ type ConfigModel struct {
 	Message      string
 	Error        string
 	Saved        bool
+	RepoDir      string // If non-empty, saves to repo config instead of global
 }
 
 // InitializeConfigModel initializes the config UI model
@@ -44,6 +46,23 @@ func InitializeConfigModel(cfg *config.Config) ConfigModel {
 		Message:      "",
 		Error:        "",
 		Saved:        false,
+	}
+}
+
+// InitializeRepoConfigModel initializes the config UI model for a specific repo
+func InitializeRepoConfigModel(cfg *config.Config, repoDir string) ConfigModel {
+	return ConfigModel{
+		Config:       cfg,
+		Mode:         ModeList,
+		Cursor:       0,
+		EditingIndex: -1,
+		EditField:    0,
+		NameInput:    "",
+		CommandInput: "",
+		Message:      "",
+		Error:        "",
+		Saved:        false,
+		RepoDir:      repoDir,
 	}
 }
 
@@ -112,14 +131,14 @@ func (m *ConfigModel) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else if len(m.Config.Windows) == 1 {
 			m.Error = "Cannot delete the last window"
 		}
-	case "ctrl+up", "K":
+	case "ctrl+up", "ctrl+k":
 		// Move window up
 		if m.Cursor > 0 && m.Cursor < len(m.Config.Windows) {
 			m.Config.Windows[m.Cursor], m.Config.Windows[m.Cursor-1] = m.Config.Windows[m.Cursor-1], m.Config.Windows[m.Cursor]
 			m.Cursor--
 			m.Message = "Window moved up"
 		}
-	case "ctrl+down", "J":
+	case "ctrl+down", "ctrl+j":
 		// Move window down
 		if m.Cursor >= 0 && m.Cursor < len(m.Config.Windows)-1 {
 			m.Config.Windows[m.Cursor], m.Config.Windows[m.Cursor+1] = m.Config.Windows[m.Cursor+1], m.Config.Windows[m.Cursor]
@@ -128,11 +147,24 @@ func (m *ConfigModel) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "s":
 		// Save and exit
-		if err := config.SaveConfig(m.Config); err != nil {
+		var err error
+		if m.RepoDir != "" {
+			// Save to repo config
+			err = config.SaveRepoConfig(m.RepoDir, m.Config)
+		} else {
+			// Save to global config
+			err = config.SaveConfig(m.Config)
+		}
+
+		if err != nil {
 			m.Error = fmt.Sprintf("Error saving config: %v", err)
 		} else {
 			m.Saved = true
-			m.Message = "Configuration saved!"
+			if m.RepoDir != "" {
+				m.Message = "Repo configuration saved!"
+			} else {
+				m.Message = "Global configuration saved!"
+			}
 			return m, tea.Quit
 		}
 	}
@@ -203,7 +235,11 @@ func (m *ConfigModel) View() string {
 
 	switch m.Mode {
 	case ModeList:
-		s.WriteString("Configure tmux-sessionizer windows\n")
+		if m.RepoDir != "" {
+			s.WriteString(fmt.Sprintf("Configure repo-level windows (%s)\n", filepath.Base(m.RepoDir)))
+		} else {
+			s.WriteString("Configure global tmux-sessionizer windows\n")
+		}
 		s.WriteString("(Use arrows to navigate, Enter to edit, 'a' to add, 'd' to delete, 's' to save)\n\n")
 
 		// Display all windows
@@ -224,7 +260,7 @@ func (m *ConfigModel) View() string {
 		s.WriteString("\n")
 
 		// Show key bindings
-		s.WriteString("[a] Add  [e/Enter] Edit  [d] Delete  [Ctrl+↑/↓ or K/J] Move  [s] Save & Exit  [q] Cancel\n")
+		s.WriteString("[a] Add  [e/Enter] Edit  [d] Delete  [Ctrl+k/j or Ctrl+↑/↓] Move  [s] Save & Exit  [q] Cancel\n")
 
 		// Show message or error
 		if m.Message != "" {

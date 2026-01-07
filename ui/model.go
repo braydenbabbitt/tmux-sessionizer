@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"strings"
 
+	config "github.com/Haptic-Labs/tmux-sessionizer/config"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // BubbleteaModel represents the bubbletea UI state
 type BubbleteaModel struct {
-	Options         []string
-	FilteredOptions []string
-	Cursor          int
-	Selected        int
-	DirMap          map[string]string
-	SearchQuery     string
-	ShowSearch      bool
+	Options            []string
+	FilteredOptions    []string
+	Cursor             int
+	Selected           int
+	DirMap             map[string]string
+	SearchQuery        string
+	ShowSearch         bool
+	ShowConfigIndicator bool          // Whether to show [configured] indicators
+	ConfiguredRepos    map[string]bool // Cache of which repos have configs
 }
 
 // Init is the bubbletea initialization function
@@ -117,7 +120,13 @@ func (m *BubbleteaModel) View() string {
 			if m.Cursor == i {
 				cursor = ">"
 			}
-			s += fmt.Sprintf("%s %s\n", cursor, option)
+
+			configIndicator := ""
+			if m.ShowConfigIndicator && m.ConfiguredRepos[option] {
+				configIndicator = " [configured]"
+			}
+
+			s += fmt.Sprintf("%s %s%s\n", cursor, option, configIndicator)
 		}
 	}
 
@@ -131,15 +140,31 @@ func (m *BubbleteaModel) View() string {
 
 // InitializeModel initializes the bubbletea model
 func InitializeModel(options []string, dirMap map[string]string) BubbleteaModel {
+	return InitializeRepoSelectorModel(options, dirMap, false)
+}
+
+// InitializeRepoSelectorModel initializes the bubbletea model with optional config indicators
+func InitializeRepoSelectorModel(options []string, dirMap map[string]string, showConfigIndicator bool) BubbleteaModel {
 	showSearch := len(options) > 3
 
+	// Build configured repos cache if needed
+	var configuredRepos map[string]bool
+	if showConfigIndicator {
+		configuredRepos = make(map[string]bool)
+		for name, path := range dirMap {
+			configuredRepos[name] = config.HasRepoConfig(path)
+		}
+	}
+
 	return BubbleteaModel{
-		Options:         options,
-		FilteredOptions: options,
-		Cursor:          0,
-		Selected:        -1,
-		DirMap:          dirMap,
-		SearchQuery:     "",
-		ShowSearch:      showSearch,
+		Options:            options,
+		FilteredOptions:    options,
+		Cursor:             0,
+		Selected:           -1,
+		DirMap:             dirMap,
+		SearchQuery:        "",
+		ShowSearch:         showSearch,
+		ShowConfigIndicator: showConfigIndicator,
+		ConfiguredRepos:    configuredRepos,
 	}
 }

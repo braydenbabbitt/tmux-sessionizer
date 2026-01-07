@@ -89,11 +89,7 @@ func CreateTmuxSession(name string, directory string, forceAttach bool, forceRec
 
 	// Run command in first window if specified
 	if firstWindow.Command != "" {
-		cmdParts := strings.Fields(firstWindow.Command)
-		args := []string{"send-keys", "-t", name + ":0"}
-		args = append(args, cmdParts...)
-		args = append(args, "Enter")
-		sendCmd := exec.Command("tmux", args...)
+		sendCmd := exec.Command("tmux", "send-keys", "-t", name+":0", firstWindow.Command, "Enter")
 		if err := sendCmd.Run(); err != nil {
 			return err
 		}
@@ -112,11 +108,7 @@ func CreateTmuxSession(name string, directory string, forceAttach bool, forceRec
 
 		// Run command if specified
 		if window.Command != "" {
-			cmdParts := strings.Fields(window.Command)
-			args := []string{"send-keys", "-t", name + ":" + windowIndex}
-			args = append(args, cmdParts...)
-			args = append(args, "Enter")
-			sendCmd := exec.Command("tmux", args...)
+			sendCmd := exec.Command("tmux", "send-keys", "-t", name+":"+windowIndex, window.Command, "Enter")
 			if err := sendCmd.Run(); err != nil {
 				return err
 			}

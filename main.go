@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	config "github.com/Haptic-Labs/tmux-sessionizer/config"
 	git "github.com/Haptic-Labs/tmux-sessionizer/git"
 	tmux "github.com/Haptic-Labs/tmux-sessionizer/tmux"
 	ui "github.com/Haptic-Labs/tmux-sessionizer/ui"
@@ -20,6 +21,7 @@ func main() {
 	var forceAttach bool
 	var forceRecreate bool
 	var useCurrent bool
+	var configMode bool
 
 	flag.BoolVar(&forceAttach, "a", false, "Automatically attach to existing session if it exists")
 	flag.BoolVar(&forceAttach, "attach", false, "Automatically attach to existing session if it exists")
@@ -27,9 +29,28 @@ func main() {
 	flag.BoolVar(&forceRecreate, "kill", false, "Automatically kill and recreate existing session if it exists")
 	flag.BoolVar(&useCurrent, "c", false, "Use current directory for session (skip directory selection)")
 	flag.BoolVar(&useCurrent, "current", false, "Use current directory for session (skip directory selection)")
+	flag.BoolVar(&configMode, "config", false, "Open interactive configuration UI")
 
 	// Parse flags
 	flag.Parse()
+
+	// If --config flag is set, launch configuration UI
+	if configMode {
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+			os.Exit(1)
+		}
+
+		model := ui.InitializeConfigModel(cfg)
+		p := tea.NewProgram(&model)
+		_, err = p.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error running config UI: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// If --current flag is set, use current directory directly
 	if useCurrent {
@@ -42,8 +63,11 @@ func main() {
 		// Get the base name of the current directory for the session name
 		sessionName := filepath.Base(currentDir)
 
+		// Load configuration
+		cfg, _ := config.LoadConfig()
+
 		// Create tmux session directly
-		err = tmux.CreateTmuxSession(sessionName, currentDir, forceAttach, forceRecreate)
+		err = tmux.CreateTmuxSession(sessionName, currentDir, forceAttach, forceRecreate, cfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating tmux session: %v\n", err)
 			os.Exit(1)
@@ -126,8 +150,11 @@ func main() {
 	selected := options[m.Selected]
 	selectedPath := dirMap[selected]
 
+	// Load configuration
+	cfg, _ := config.LoadConfig()
+
 	// Create tmux session
-	err = tmux.CreateTmuxSession(selected, selectedPath, forceAttach, forceRecreate)
+	err = tmux.CreateTmuxSession(selected, selectedPath, forceAttach, forceRecreate, cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating tmux session: %v\n", err)
 		os.Exit(1)
